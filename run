@@ -1,0 +1,669 @@
+#!/bin/sh
+# helper script for flutter projects
+
+is_ios() {
+  # if OSTYPE variable contains darwin, then this must be be for IOS platform
+  if [ "${OSTYPE#darwin}" != "$OSTYPE" ]; then
+    export TARGET_IS_IOS=1
+  else
+    export TARGET_IS_IOS=0
+  fi
+}
+# set variable TARGET_IS_IOS to indicate if this mobile platform is IOS, otherwise default is Android
+is_ios
+
+app_update_name() {
+  # This utility is only used briefly so simply add to project then remove after use
+  # Note config must exist in pubspec.yaml
+  flutter pub add flutter_launcher_name
+  sleep 2
+  flutter pub run flutter_launcher_name:main
+  sleep 1
+  flutter pub remove flutter_launcher_name
+}
+
+app_update_icon() {
+  # This utility is only used briefly so simply add to project then remove after use
+  # Note config must exist in pubspec.yaml
+  flutter pub add flutter_launcher_icons
+  sleep 2
+  flutter pub run flutter_launcher_icons:main
+  sleep 1
+  flutter pub remove flutter_launcher_icons
+}
+
+# Changes IOS splash screen to a single color with a centered image from assets/splash
+update_ios_splash() {
+  # Deleting files to refresh Xcode, even though we are over writing them further below
+  rm -rf ./ios/Runner/Assets.xcassets/LaunchImage.imageset
+
+  # Create the folder again
+  mkdir ./ios/Runner/Assets.xcassets/LaunchImage.imageset
+  
+  RESIZE_COMMAND="java -cp _tools/ android_multitool resize_image"
+  SOURCE_SPLASH=./assets/splash/splash.png
+
+  # Generate normal square
+  $RESIZE_COMMAND $SOURCE_SPLASH ios/Runner/Assets.xcassets/LaunchImage.imageset/splash-1x.png 256
+  $RESIZE_COMMAND $SOURCE_SPLASH ios/Runner/Assets.xcassets/LaunchImage.imageset/splash-2x.png 512
+  $RESIZE_COMMAND $SOURCE_SPLASH ios/Runner/Assets.xcassets/LaunchImage.imageset/splash-3x.png 1024
+
+
+  CONTENTS_JSON='{
+  "images" : [
+    {
+      "filename" : "splash-1x.png",
+      "idiom" : "universal",
+      "scale" : "1x"
+    },
+    {
+      "filename" : "splash-2x.png",
+      "idiom" : "universal",
+      "scale" : "2x"
+    },
+    {
+      "filename" : "splash-3x.png",
+      "idiom" : "universal",
+      "scale" : "3x"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}'
+
+  #create contents.json file for splash reference
+   echo $CONTENTS_JSON > ./ios/Runner/Assets.xcassets/LaunchImage.imageset/Contents.json
+
+  HEXCOLOR=$1
+  COLOR_RED=$(printf "%d" "0x${HEXCOLOR:0:2}")
+  COLOR_GREEN=$(printf "%d" "0x${HEXCOLOR:2:2}")
+  COLOR_BLUE=$(printf "%d" "0x${HEXCOLOR:4:2}")
+  DECIMAL_RED=$( awk "BEGIN{print $COLOR_RED / 255.0}" )
+  DECIMAL_GREEN=$( awk "BEGIN{print $COLOR_GREEN / 255.0}" )
+  DECIMAL_BLUE=$( awk "BEGIN{print $COLOR_BLUE / 255.0}" )
+
+
+  NEW_LAUNCHSCREEN_FILE="ios/LaunchScreen.storyboard"
+  LAUNCHSCREEN_FILE="ios/Runner/Base.lproj/LaunchScreen.storyboard"
+
+  rm -rf $NEW_LAUNCHSCREEN_FILE
+  rm -rf $LAUNCHSCREEN_FILE
+
+  APP_DELEGATE="ios/AppDelegate.mm"
+
+  awk -v red=$COLOR_RED -v green=$COLOR_GREEN -v blue=$COLOR_BLUE \
+    '{if ($0 ~ /rootView.backgroundColor/) {printf "    rootView.backgroundColor = [[UIColor alloc] initWithRed:%f green:%f blue:%f alpha:1];\n", (red/255.0), (green/255.0), (blue/255.0);} else {print} }' \
+    $APP_DELEGATE > ${APP_DELEGATE}_tmp
+  mv ${APP_DELEGATE}_tmp $APP_DELEGATE
+
+  LAUNCH_SCREEN_CODE='<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="19455" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" launchScreen="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES" initialViewController="01J-lp-oVM">
+    <device id="retina4_7" orientation="portrait" appearance="light"/>
+    <dependencies>
+        <deployment identifier="iOS"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="19454"/>
+        <capability name="Safe area layout guides" minToolsVersion="9.0"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <scenes>
+        <!--View Controller-->
+        <scene sceneID="EHf-IW-A2E">
+            <objects>
+                <viewController id="01J-lp-oVM" sceneMemberID="viewController">
+                    <view key="view" contentMode="scaleToFill" id="Ze5-6b-2t3">
+                        <rect key="frame" x="0.0" y="0.0" width="414" height="896"/>
+                        <autoresizingMask key="autoresizingMask" flexibleMinX="YES" widthSizable="YES" flexibleMaxX="YES" flexibleMinY="YES" heightSizable="YES" flexibleMaxY="YES"/>
+                        <subviews>
+                            <imageView opaque="NO" clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="scaleAspectFit" ambiguous="YES" image="LaunchImage" id="YRO-k0-Ey4">
+                                <rect key="frame" x="52" y="303" width="311" height="290"/>
+                                <autoresizingMask key="autoresizingMask" flexibleMinX="YES" widthSizable="YES" flexibleMaxX="YES" flexibleMinY="YES" heightSizable="YES" flexibleMaxY="YES"/>
+                            </imageView>
+                        </subviews>
+                        <color key="backgroundColor" red="'$DECIMAL_RED'" green="'$DECIMAL_GREEN'" blue="'$DECIMAL_BLUE'" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                        <constraints>
+                            <constraint firstItem="YRO-k0-Ey4" firstAttribute="centerX" secondItem="Ze5-6b-2t3" secondAttribute="centerX" id="1a2-6s-vTC"/>
+                            <constraint firstItem="YRO-k0-Ey4" firstAttribute="centerY" secondItem="Ze5-6b-2t3" secondAttribute="centerY" id="4X2-HB-R7a"/>
+                        </constraints>
+                    </view>
+                </viewController>
+                <placeholder placeholderIdentifier="IBFirstResponder" id="iYj-Kq-Ea1" userLabel="First Responder" sceneMemberID="firstResponder"/>
+            </objects>
+            <point key="canvasLocation" x="52.173913043478265" y="375"/>
+        </scene>
+    </scenes>
+    <resources>
+        <image name="LaunchImage" width="512" height="512"/>
+    </resources>
+</document>
+'
+ 
+  echo $LAUNCH_SCREEN_CODE > $NEW_LAUNCHSCREEN_FILE
+  echo $LAUNCH_SCREEN_CODE > $LAUNCHSCREEN_FILE
+}
+
+update_android_splash() {
+  # Generate asset/splash to be the launch_image
+  RESIZE_COMMAND="java -cp _tools/ android_multitool resize_splash"
+  SOURCE_SPLASH=./assets/splash/splash.png
+
+
+  # Generate normal square
+  $RESIZE_COMMAND $SOURCE_SPLASH android/app/src/main/res/mipmap-mdpi/launch_image.png 240 320 $1 $2
+  $RESIZE_COMMAND $SOURCE_SPLASH android/app/src/main/res/mipmap-hdpi/launch_image.png 320 480 $1 $2
+  $RESIZE_COMMAND $SOURCE_SPLASH android/app/src/main/res/mipmap-xhdpi/launch_image.png 480 800 $1 $2
+  $RESIZE_COMMAND $SOURCE_SPLASH android/app/src/main/res/mipmap-xxhdpi/launch_image.png 640 960 $1 $2
+  $RESIZE_COMMAND $SOURCE_SPLASH android/app/src/main/res/mipmap-xxxhdpi/launch_image.png 720 1280 $1 $2
+
+  #update launch_image_xml
+  LAUNCH_IMAGE_CONTENT="<?xml version='1.0' encoding='utf-8'?>
+    <!-- Modify this file to customize your launch splash screen -->
+    <layer-list xmlns:android='http://schemas.android.com/apk/res/android'>
+        <item android:drawable='@color/app_background_color' />
+
+        <!-- You can insert your own image assets here -->
+        <item>
+            <bitmap
+                android:gravity='center'
+                android:src='@mipmap/launch_image' />
+        </item>
+    </layer-list>"
+  
+  echo $LAUNCH_IMAGE_CONTENT > android/app/src/main/res/drawable/launch_background.xml
+  echo $LAUNCH_IMAGE_CONTENT > android/app/src/main/res/drawable-v21/launch_background.xml
+
+
+  #create Android 10+ styles folder
+  mkdir android/app/src/main/res/values-v31
+
+  #create android 10+ styles
+  STYLES_ANDROID_X_FILE=android/app/src/main/res/values-v31/styles.xml
+  STYLES_ANDROID_X_XML="<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <!-- Theme applied to the Android Window while the process is starting when the OS's Dark Mode setting is off -->
+    <style name='LaunchTheme' parent='@android:style/Theme.Light.NoTitleBar'>
+        <!-- Show a splash screen on the activity. Automatically removed when
+             Flutter draws its first frame -->
+        <item name='android:windowSplashScreenBackground'>@color/app_background_color</item>
+        <item name='android:windowSplashScreenAnimatedIcon'>@drawable/launch_background</item>
+    </style>
+    <!-- Theme applied to the Android Window as soon as the process has started.
+         This theme determines the color of the Android Window while your
+         Flutter UI initializes, as well as behind your Flutter UI while its
+         running.
+         This Theme is only used starting with V2 of Flutter's Android embedding. -->
+    <style name='NormalTheme' parent='@android:style/Theme.Light.NoTitleBar'>
+        <item name='android:windowBackground'>?android:colorBackground</item>
+    </style>
+</resources>"
+  
+  echo $STYLES_ANDROID_X_XML > $STYLES_ANDROID_X_FILE
+
+  #create colors xml
+  HEXCOLOR=$1
+  COLORS_FILE=android/app/src/main/res/values/colors.xml
+  COLORS_XML="<?xml version='1.0' encoding='utf-8'?>
+    <resources>
+       <color name=\"app_background_color\">#$HEXCOLOR</color>
+    </resources>
+  "
+
+  echo $COLORS_XML > $COLORS_FILE
+
+
+  STYLES_FILE=android/app/src/main/res/values/styles.xml
+  echo $STYLES_ANDROID_X_XML > $STYLES_FILE
+  
+}
+
+update_app_splash() {
+  if [ "$1" = "" ]; then
+    echo "Usage ./run update-app-splash <rrggbb> <square_size>\n  where rrggbb is a hex value & square size is the size of the image in the middle. (optional)";
+    exit
+  fi
+
+  #update native splash
+  update_ios_splash $1
+  update_android_splash $1 $2
+}
+
+app_update_splash_screen() {
+  flutter pub run flutter_native_splash:create
+}
+
+app_hook_link() {
+  echo "Relinking hooks ..."
+  rm .git/hooks/pre-commit
+  ln -s ../../_hooks/pre-commit .git/hooks/pre-commit
+  echo "Done"
+}
+
+app_build_common() {
+  # common commands to run just before an app build
+  flutter gen-l10n
+}
+
+# common step to install flutter when running in a CI pipeline
+ci_install_flutter() {
+  # requires FLUTTER_PATH and FLUTTER_VERSION defined in CI/CD config
+  if [ ! -d $FLUTTER_PATH/bin ]; then git clone --single-branch --branch $FLUTTER_VERSION --depth 1 https://github.com/flutter/flutter.git $FLUTTER_PATH; fi
+  echo "$FLUTTER_PATH/bin" >> $GITHUB_PATH
+  if [ $TARGET_IS_IOS -eq 1 ]; then
+    echo "Flutter precaching IOS"
+    $FLUTTER_PATH/bin/flutter precache --ios
+  else
+    echo "Flutter precaching Android"
+    $FLUTTER_PATH/bin/flutter precache --android
+  fi
+  $FLUTTER_PATH/bin/flutter pub get
+}
+
+ci_set_autocommit_user() {
+  git config user.name "GitHub Actions Bot"
+  git config user.email "github@users.noreply.github.com"
+}
+
+ci_update_develop_branch() {
+  git checkout develop
+  git pull
+  git merge staging
+  git push
+}
+
+ci_prebuild_checker() {
+  HAS_ERROR=0
+  # Checks that all required environment variables are defined to make IOS and Android builds
+  if [ "$SECRETS_PASSWORD" = "" ]; then HAS_ERROR=1; echo "Undefined variable SECRETS_PASSWORD" ; fi
+
+  if [ "$IOS_CERT_P12_PASSWORD" = "" ]; then HAS_ERROR=1; echo "Undefined variable IOS_CERT_P12_PASSWORD" ; fi
+  if [ "$IOS_UPLOAD_USER" = "" ]; then HAS_ERROR=1; echo "Undefined variable IOS_UPLOAD_USER" ; fi
+  if [ "$IOS_UPLOAD_PASSWORD" = "" ]; then HAS_ERROR=1; echo "Undefined variable IOS_UPLOAD_PASSWORD" ; fi
+
+  if [ "$ANDROID_UPLOAD_KEY_BASE64" = "" ]; then HAS_ERROR=1; echo "Undefined variable ANDROID_UPLOAD_KEY_BASE64" ; fi
+  if [ "$ANDROID_KEYSTORE_PASSWORD" = "" ]; then HAS_ERROR=1; echo "Undefined variable ANDROID_KEYSTORE_PASSWORD" ; fi
+  if [ "$ANDROID_UPLOAD_JSON_BASE64" = "" ]; then HAS_ERROR=1; echo "Undefined variable ANDROID_UPLOAD_JSON_BASE64" ; fi
+
+  if [ "$SLACK_CHANNEL" = "" ]; then HAS_ERROR=1; echo "Undefined variable SLACK_CHANNEL" ; fi
+  if [ "$SLACK_TOKEN" = "" ]; then HAS_ERROR=1; echo "Undefined variable SLACK_TOKEN" ; fi
+
+  if [ "$GOOGLE_UPLOAD_OAUTH_KEY_B64" = "" ]; then HAS_ERROR=1; echo "Undefined variable GOOGLE_UPLOAD_OAUTH_KEY_B64" ; fi
+  if [ "$GOOGLE_UPLOAD_REFRESH_TOKEN" = "" ]; then HAS_ERROR=1; echo "Undefined variable GOOGLE_UPLOAD_REFRESH_TOKEN" ; fi
+
+  if [ "$GOOGLE_UPLOAD_FOLDER" = "" ]; then HAS_ERROR=1; echo "Undefined variable GOOGLE_UPLOAD_FOLDER" ; fi
+
+  if [ "$HAS_ERROR" = "1" ]; then exit -1; fi
+}
+
+ci_cache_load_any() {
+  # Folder to store cache files
+  CACHE_KEY="$1" ; CACHE_FILE="$CACHE_KEY"
+  # path of file to compare for changes
+  CHANGE_FILE_PATH="$2"
+  # name of file to compare for changes
+  CHANGE_FILE="$3"
+
+  if [ -f "_cache/$CACHE_KEY/$CHANGE_FILE" ]; then
+    diff "$CHANGE_FILE_PATH/$CHANGE_FILE" _cache/$CACHE_KEY/$CHANGE_FILE
+    EXIT_CODE=$?
+    if [ "$EXIT_CODE" = "0" ] && [ -f "_cache/$CACHE_KEY/$CACHE_FILE.zip" ] ; then
+      echo "CACHE HIT: extracting $CACHE_KEY/$CACHE_FILE.zip"
+      unzip _cache/$CACHE_KEY/$CACHE_FILE.zip -d ./
+      return 0;
+    fi
+  fi
+  echo "CACHE MISS: $CACHE_KEY - $CHANGE_FILE_PATH/$CHANGE_FILE"
+}
+
+ci_cache_save_any() {
+  CACHE_KEY="$1"  ;  CACHE_FILE="$CACHE_KEY"
+  CHANGE_FILE_PATH="$2"  ;  CHANGE_FILE="$3"
+  CACHED_FOLDER="$4"
+
+  UPDATE_GRADLE_CACHE1="no"
+  # Update cache files if Podfile.lock is different or does not exist
+  if [ -f "_cache/$CACHE_KEY/$CHANGE_FILE" ]; then
+    diff "$CHANGE_FILE_PATH/$CHANGE_FILE" _cache/$CACHE_KEY/$CHANGE_FILE
+    if [ ! "$?" = "0" ]; then UPDATE_GRADLE_CACHE1="yes" ; fi
+  else
+    UPDATE_GRADLE_CACHE1="yes"
+  fi
+
+  if [ "$UPDATE_GRADLE_CACHE1" = "yes" ]; then
+    echo "Updating cache file $CACHE_KEY/$CACHE_FILE.zip"
+    mkdir -p "_cache/$CACHE_KEY"
+    cp "$CHANGE_FILE_PATH/$CHANGE_FILE" _cache/$CACHE_KEY/
+    rm -f _cache/$CACHE_KEY/$CACHE_FILE.z??
+    zip -r -8 -s 35m _cache/$CACHE_KEY/$CACHE_FILE.zip "$CACHED_FOLDER"
+
+    # update repository cache
+    git pull
+    git add _cache/
+    git commit --no-verify -m "update $CACHE_KEY cache files"
+    git push
+    ci_update_develop_branch
+  fi
+}
+
+
+# Extracts cached files if already exists
+ci_cache_load() {
+  if [ $TARGET_IS_IOS -eq 1 ]; then
+    ci_cache_load_any ios_pods "ios" "Podfile.lock"
+  else
+    ci_cache_load_any android_gradle "." "package.json"
+  fi
+}
+
+
+ci_cache_save() {
+  if [ $TARGET_IS_IOS -eq 1 ]; then
+    ci_cache_save_any ios_pods "ios" "Podfile.lock" "ios/Pods/"
+  else
+    ci_cache_save_any android_gradle "." "pubspec.lock" "android/.gradle/"
+  fi
+}
+
+android_get_version() {
+  # Gets the versionCode from a apk or aab file
+  FILE_PATH=$1
+  # options for SHOW_ALL is blank, all, or store
+  SHOW_ALL=$2
+  FILE_EXT=$(echo $FILE_PATH | cut -d'.' -f2)
+  AAPT_EXE=$(find $ANDROID_HOME/build-tools -maxdepth 2 -name 'aapt' | head -n1)
+  # if aab file convert to apk to get versionCode
+  if [ "$FILE_EXT" = "aab" ]; then
+    AAPT2_EXE=$(find $ANDROID_HOME/build-tools -maxdepth 2 -name 'aapt2' | head -n1)
+    mkdir .tmp
+    unzip -p $FILE_PATH base/manifest/AndroidManifest.xml > ./.tmp/AndroidManifest.xml
+    cd ./.tmp;
+    # change in FILE_PATH must come after the unzip
+    FILE_PATH=version-xx.apk
+    zip proto_version.apk AndroidManifest.xml > /dev/null
+    $AAPT2_EXE convert proto_version.apk -o ../$FILE_PATH
+    cd ..; rm -rf .tmp;
+  fi
+
+  AWK_APK_VERSION='/versionName=/ { if ("'$SHOW_ALL'" == "all") { print $6 "+" $4;
+  } else if ("'$SHOW_ALL'" == "store")  {
+    print $4 " (" $6 ")";
+  } else
+  print $6; }'
+  SEM_VER=$($AAPT_EXE dump badging $FILE_PATH 2> /dev/null | awk -F "'" "$AWK_APK_VERSION")
+  echo $SEM_VER
+
+  if [ "$FILE_PATH" = "version-xx.apk" ]; then rm $FILE_PATH; fi
+}
+
+android_build_aab() {
+  app_build_common
+  flutter build appbundle --obfuscate --split-debug-info build/app/outputs/debug-aab/
+}
+
+android_build_apk() {
+  app_build_common
+  flutter build apk --obfuscate --split-debug-info build/app/outputs/debug-apk/
+}
+
+android_upload_aab() {
+  if [ "$1" = "" ]; then echo "This command requires a file parameter"; exit; fi
+  AAB_PATH=$1
+  ANDROID_UPLOAD_JSON_PATH=$PWD/upload-key.json
+  echo $ANDROID_UPLOAD_JSON_PATH
+  echo "$ANDROID_UPLOAD_JSON_BASE64" | base64 --decode > $ANDROID_UPLOAD_JSON_PATH
+
+  VERSION_NAME=$(android_get_version "$AAB_PATH" store)
+
+  rm -rf _tools/aab2playstore/
+  unzip -oq _tools/aab2playstore.zip -d _tools/
+  # echo ">> Compiling..."
+  # ./_tools/aab2playstore/node_modules/.bin/tsc ./_tools/aab2playstore/aab2playstore.ts
+  echo ">> Uploading... $VERSION_NAME"
+  node _tools/aab2playstore/aab2playstore.js -t internal -p $APP_BUNDLEID -v "$VERSION_NAME" -k "$ANDROID_UPLOAD_JSON_PATH" -a $AAB_PATH
+
+  rm -f $ANDROID_UPLOAD_JSON_PATH
+}
+
+ios_build_ipa() {
+  # TYPE should be adhoc or appstore
+  TYPE=$1
+  if [ "$1" = "adhoc" ]; then
+    E_METHOD=ad-hoc
+    PROVISION_PROFILE_NAME=${APP_BUNDLEID}-adhoc
+  elif [ "$1" = "appstore" ]; then
+    E_METHOD=app-store
+    PROVISION_PROFILE_NAME=${APP_BUNDLEID}-appstore
+  else
+    echo "Invalid option.  Valid options are adhoc, appstore"
+    exit -1;
+  fi
+
+  echo "$E_METHOD   $PROVISION_PROFILE_NAME"
+
+  EXPORT_FILE_PATH=$PWD/$IOS_TMP_FOLDER/export_options.plist
+echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+<plist version=\"1.0\">
+<dict>
+        <key>destination</key>
+        <string>export</string>
+        <key>method</key>
+        <string>$E_METHOD</string>
+        <key>provisioningProfiles</key>
+        <dict>
+                <key>$APP_BUNDLEID</key>
+                <string>$PROVISION_PROFILE_NAME</string>
+        </dict>
+        <key>signingCertificate</key>
+        <string>Apple Distribution</string>
+        <key>signingStyle</key>
+        <string>manual</string>
+        <key>stripSwiftSymbols</key>
+        <true/>
+        <key>teamID</key>
+        <string>$IOS_TEAM_ID</string>
+        <key>uploadSymbols</key>
+        <true/>
+</dict>
+</plist>" > $EXPORT_FILE_PATH
+
+  app_build_common
+  flutter build ipa --release --export-options-plist=$EXPORT_FILE_PATH
+}
+
+ios_upload_ipa() {
+  xcrun altool --upload-app --type ios -f build/ios/ipa/$APP_NAME.ipa -u $IOS_UPLOAD_USER -p $IOS_UPLOAD_PASSWORD
+}
+
+ios_get_version() {
+  FILE_PATH=$1
+  SHOW_ALL=$2
+  AWK_IOS_VERSION="BEGIN { xyz=\"\"; b=\"\"; }
+  /CFBundleShortVersion|CFBundleVersion/ { getline; if (xyz == \"\") xyz=\$3; else b=\$3; }
+  END { if (\"$SHOW_ALL\" == \"all\") print xyz \"+\" b;  else print xyz; }"
+  SEM_VER=$(tar -zxOf $FILE_PATH Payload/*.app/Info.plist | plutil -convert xml1 -r -o - -- - | awk -F '[<>]' "$AWK_IOS_VERSION")
+  echo $SEM_VER
+}
+
+slack_message() {
+  MESSAGE="$1"
+  CURL_DATA='{"channel":"'$SLACK_CHANNEL'","blocks":[{"type":"section","text":{"type":"mrkdwn","text":"'$MESSAGE'"}}]}'
+  echo "$CURL_DATA\n"
+  curl -H "Content-type: application/json" -H "Authorization: Bearer $SLACK_TOKEN" \
+    --data "$CURL_DATA" -X POST https://slack.com/api/chat.postMessage
+}
+
+slack_send() {
+# example
+# ./run slack-send "This is version 1.0.3 of the mobile app" release1.0.3.apk build/app/outputs/apk/release/app-release.apk
+  MESSAGE="$1"
+  SLACK_FILE="$2"
+  SLACK_FILENAME="$3"
+# The --limit-rate options helps with Slack service problem. See https://github.com/slackapi/python-slack-sdk/issues/1165
+  curl https://slack.com/api/files.upload --max-time 180 -F token="$SLACK_TOKEN" -F channels="$SLACK_CHANNEL" \
+    -F title="$MESSAGE" \
+    -F filename="$SLACK_FILE" -F file=@"$SLACK_FILENAME" \
+    --limit-rate 5M
+}
+
+ios_set_missing_compliance_no() {
+  grep "ITSAppUsesNonExemptEncryption" ios/Runner/Info.plist
+  if [ ! "$?" = "0" ]; then
+    AWK_INSERT_ENTRY1='{
+      if (match($0, /\<\/dict\>/)) {
+        print "\t<key>ITSAppUsesNonExemptEncryption</key>\n\t<false/>\n<\/dict>";
+      } else print $0;
+    }'
+
+    awk "$AWK_INSERT_ENTRY1" ios/Runner/Info.plist >ios/Runner/Info.plist_tmp
+    mv ios/Runner/Info.plist_tmp ios/Runner/Info.plist
+  fi
+}
+
+flutter_increment_version() {
+  AWK_INCREMENT_FILE='{ isFound=match($0,/^version: .*/)
+    if (isFound) {
+      split($0,ver,"+")
+      print ver[1] "+" (1+ver[2])
+    } else {
+      print $0
+    }
+  }'
+  awk "$AWK_INCREMENT_FILE" pubspec.yaml > pubspec.yaml_tmp
+  cp pubspec.yaml_tmp pubspec.yaml
+  rm pubspec.yaml_tmp
+
+  AWK_GET_NEW_VERSION='{ isFound=match($0,/^version: .*/)
+    if (isFound) {
+      split($0, ver, ": ")
+      print ver[2]
+    }
+  }'
+  NEW_VERSION=$(awk "$AWK_GET_NEW_VERSION" pubspec.yaml)
+
+  echo "Bump version to $NEW_VERSION"
+
+  ci_set_autocommit_user
+  git pull
+  git add pubspec.yaml
+  git commit --no-verify -m "Bump version to $NEW_VERSION"
+  git push
+  ci_update_develop_branch
+}
+
+app_increment_version() {
+  CURRENT_BRANCH=$(git branch --show-current)
+  if [ ! "$CURRENT_BRANCH" = "staging" ]; then echo "CANCELLED: You must be in the staging branch"; exit 0; fi
+  flutter_increment_version
+}
+
+# save file to a folder in Google Drive
+upload_gdrive() {
+  if [ "$1" = "" ]; then echo "This command requires a file parameter"; exit; fi
+  UPLOAD_FILE_PATH="$1"
+  SLACK_MESSAGE="$2"
+
+  # use upload tool
+  node _tools/gdrive.js upload "$UPLOAD_FILE_PATH"
+
+  # wait 3 seconds before trying to get newly uploaded file information
+  sleep 3;
+  FILE_LINK=$(node _tools/gdrive.js getlink "$UPLOAD_FILE_PATH")
+  HAS_LINK=$(awk -v filelink="$FILE_LINK" 'BEGIN{ if (index(filelink,"https")==1) print "YES"}')
+
+  if [ ! -d "build/" ]; then mkdir build ; fi
+
+  if [ "$HAS_LINK" = "YES" ]; then
+    LAST_UPLOAD_MESSAGE="$SLACK_MESSAGE available at: $FILE_LINK"
+    echo "$LAST_UPLOAD_MESSAGE" > build/msg.tmp
+  else
+    LAST_UPLOAD_MESSAGE="Could not upload $SLACK_MESSAGE"
+    echo "$LAST_UPLOAD_MESSAGE" > build/msg.tmp
+  fi
+}
+
+# Generate anything that needs updating. e.g models, JSON, graphQL, etc
+app_generate() {
+  flutter pub run build_runner build
+  flutter gen-l10n
+}
+
+app_wrap() {
+  CURRENT_FOLDER=$PWD
+  APP_NAME=quokka-mobile-app
+  FILE_DATESTAMP=$(date +'%Y-%m-%d')
+
+  cd ..
+  zip -r "$APP_NAME$FILE_DATESTAMP.zip" $APP_NAME -x "$APP_NAME/build/*" \
+    -x "$APP_NAME/android/appbuild"
+  cd $CURRENT_FOLDER
+}
+
+
+# Compile multitool if it does not exist
+if [ ! -f _tools/android_multitool.class ]; then javac _tools/android_multitool.java; fi
+
+# read environment from a file
+if [ -f ./env.settings ]; then . ./env.settings; fi
+# variables read from the env.settings file needs to be exported to be used in some programs
+# such as nodejs using process.env
+export GOOGLE_UPLOAD_FOLDER="$GOOGLE_UPLOAD_FOLDER"
+if [ -f ./.env ]; then . ./.env; fi
+
+# Scripts used in ci only
+if [ "$1" = "ci-install-flutter" ]; then ci_install_flutter; exit $?; fi
+if [ "$1" = "ci-prebuild-check" ]; then ci_prebuild_checker; exit $?; fi
+
+if [ "$1" = "ci-cache-load" ]; then exit 0 ; ci_cache_load; exit $?; fi
+if [ "$1" = "ci-cache-save" ]; then exit 0 ; ci_cache_save; exit $?; fi
+
+
+# Common scripts
+if [ "$1" = "format" ]; then dart format --set-exit-if-changed lib test; exit $?; fi
+if [ "$1" = "lint" ]; then flutter analyze; exit $?; fi
+if [ "$1" = "test" ]; then flutter test; exit $?; fi
+if [ "$1" = "bump" ]; then app_increment_version; exit $?; fi
+if [ "$1" = "upload-gdrive" ]; then upload_gdrive "$2" "$3"; exit $?; fi
+if [ "$1" = "slack-last-upload" ]; then slack_message "$(cat build/msg.tmp)"; rm build/msg.tmp ; exit ; fi
+
+
+# IOS scripts
+if [ "$1" = "start-ios" ]; then flutter run; exit $?; fi
+if [ "$1" = "upload-ios" ]; then ios_upload_ipa; exit $?; fi
+if [ "$1" = "ios-version" ]; then ios_get_version "$2" $3; exit $?; fi
+
+if [ "$1" = "ios-set-missing-compliance-no" ]; then ios_set_missing_compliance_no; exit $?; fi
+
+# need to have the signing key installed with ./appsign ios-key-add before running any of the build commands
+if [ "$1" = "build-ios" ]; then ios_build_ipa $2; exit $?; fi
+
+
+# Android scripts
+if [ "$1" = "start-android" ]; then flutter run; exit $?; fi
+if [ "$1" = "upload-aab" ]; then android_upload_aab "$2"; exit $?; fi
+if [ "$1" = "android-version" ]; then android_get_version "$2" $3; exit $?; fi
+
+# need to have the signing key installed with ./appsign android-key-add before running any of the build commands
+if [ "$1" = "build-aab" ]; then android_build_aab; exit $?; fi
+if [ "$1" = "build-apk" ]; then android_build_apk; exit $?; fi
+if [ "$1" = "create-splash-screen" ]; then dart run flutter_native_splash:create --path=flutter_native_splash.yaml; exit $?; fi
+
+if [ "$1" = "slack-message" ]; then slack_message "$2"; exit $?; fi
+if [ "$1" = "slack-send" ]; then slack_send "$2" "$3" "$4"; exit $?; fi
+
+# Not used for now
+# if [ "$1" = "deploy-ios" ]; then git checkout develop-ios; git merge develop; git push; git checkout develop; exit; fi
+# if [ "$1" = "deploy-android" ]; then git checkout develop-android; git merge develop; git push; git checkout develop; exit; fi
+
+if [ "$1" = "test2" ]; then echo "TODO: PLACEHOLDER"; exit $?; fi
+
+# App management scripts
+if [ "$1" = "relink-githook" ]; then app_hook_link; exit $?; fi
+if [ "$1" = "update-icon" ]; then app_update_icon; exit $?; fi
+if [ "$1" = "update-name" ]; then app_update_name; exit $?; fi
+if [ "$1" = "update-app-splash" ]; then update_app_splash $2 $3 $4; exit $?; fi
+if [ "$1" = "generate" ]; then app_generate; exit $?; fi
+
+if [ "$1" = "wrap" ]; then app_wrap ; exit $? ; fi
+
+echo "Command not found"
