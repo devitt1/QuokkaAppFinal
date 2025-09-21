@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:quokka_mobile_app/app_localizations.dart';
 import 'package:quokka_mobile_app/components/qk_error_message.dart';
 import 'package:quokka_mobile_app/components/spacer.dart';
+import 'package:quokka_mobile_app/components/qk_button.dart';
+import 'package:quokka_mobile_app/components/qk_text_input.dart';
 import 'package:quokka_mobile_app/services/qk_wifi.dart';
 import 'package:quokka_mobile_app/controllers/app_provider.dart';
 import 'package:quokka_mobile_app/theme/text_styles.dart';
@@ -24,12 +26,13 @@ class _QkWifiScannerState extends State<QkWifiScanner> {
   late AppProvider appProvider;
   late AppLocalizations lang;
   late Measures measures;
-  final wifi = QkWifi();
+  final wifi = QkWifiScan();
   bool isScanning = false;
   List<WiFiAccessPoint> foundNetworks = [];
-  bool _isWifiSupported = false;
+  bool _isWifiScanSupported = false;
   bool _isWifiEnabled = false;
   bool _isWifiValidated = false;
+  final TextEditingController _ssidController = TextEditingController();
 
   bool checkSSID(String ssid, List<String> wifiList) {
     if (ssid.isEmpty) return false;
@@ -52,16 +55,21 @@ class _QkWifiScannerState extends State<QkWifiScanner> {
     super.initState();
     if (!mounted) return;
 
+    _ssidController.addListener(() {
+      if (mounted) setState(() {});
+    });
+
     // TODO: Implement blueetooth scanner and fill devices lists with found devices
     Future.delayed(Duration.zero, () async {
       if (!mounted) return;
 
-      bool isSupported = await wifi.isSupported();
+      bool isSupported = await wifi.isScanSupported();
       if (!isSupported) {
+        debugPrint('WiFi Scan Not Supported - Prompt for SSID');
         setState(() {
-          _isWifiSupported = false;
+          _isWifiScanSupported = false;
           _isWifiEnabled = false;
-          _isWifiValidated = false;
+          _isWifiValidated = true; // show manual SSID entry instead of spinner
         });
         return;
       }
@@ -70,7 +78,7 @@ class _QkWifiScannerState extends State<QkWifiScanner> {
       // TODO: Show a modal to ask user to enable wifi
       setState(() {
         _isWifiEnabled = isEnabled;
-        _isWifiSupported = true;
+        _isWifiScanSupported = true;
         _isWifiValidated = true;
       });
 
@@ -92,6 +100,7 @@ class _QkWifiScannerState extends State<QkWifiScanner> {
 
   @override
   void dispose() {
+    _ssidController.dispose();
     super.dispose();
   }
 
@@ -105,12 +114,41 @@ class _QkWifiScannerState extends State<QkWifiScanner> {
       );
     }
 
-    if (!_isWifiSupported) {
+    if (!_isWifiScanSupported) {
       return SizedBox(
         height: measures.height(50),
-        child: QkErrorMessage(
-          title: lang.t('wifi_not_supported'),
-          message: lang.t('wifi_not_supported_description'),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              lang.t('wifi_scanning_not_supported_title'),
+              style: TextStyles.roobertTextMd16Bold,
+            ),
+            Separator(size: Size(0, Measures.separator8)),
+            Text(
+              lang.t('wifi_scanning_not_supported_description'),
+              style: TextStyles.roobertTextSm14,
+            ),
+            Separator(size: Size(0, Measures.separator16)),
+            QkTextInput(
+              title: lang.t('choose_wifi_network_page_wifi_network'),
+              controller: _ssidController,
+              placeholder: lang.t('wifi_ssid_placeholder'),
+            ),
+            const Spacer(),
+            SafeArea(
+              child: QkButton(
+                title: lang.t('continue'),
+                disabled: _ssidController.text.trim().isEmpty,
+                onPressed: () {
+                  final ssid = _ssidController.text.trim();
+                  if (ssid.isEmpty) return;
+                  appProvider.onWifiNetworkSelected(ssid);
+                  Navigator.of(context).pop();
+                },
+              ),
+            ),
+          ],
         ),
       );
     }

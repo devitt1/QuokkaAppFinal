@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:wifi_scan/wifi_scan.dart';
 
-class QkWifi {
-  Future<bool> isSupported() async =>
+class QkWifiScan {
+  Future<bool> isScanSupported() async =>
       await WiFiScan.instance.canGetScannedResults(askPermissions: true) ==
       CanGetScannedResults.yes;
 
