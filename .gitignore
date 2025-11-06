@@ -49,3 +49,6 @@ app.*.map.json
 android/key.properties
 android-key.jks
 _ios_secrets/
+
+# Local iOS config overrides
+ios/Flutter/Environment.local.xcconfig
