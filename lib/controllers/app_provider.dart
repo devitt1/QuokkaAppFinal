@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:quokka_mobile_app/app_localizations.dart';
 import 'package:quokka_mobile_app/components/wifi_connecting_modal.dart';
 import 'package:quokka_mobile_app/constants.dart';
@@ -20,6 +19,7 @@ class AppProvider extends ChangeNotifier {
   QkWifiConnectStatus wifiConnectStatus = QkWifiConnectStatus.connecting;
   String selectedWifiNetwork = "";
   bool _isDebug = false;
+  bool _isMockBluetooth = false;
 
   bool isDebugMode() => _isDebug;
 
@@ -27,6 +27,17 @@ class AppProvider extends ChangeNotifier {
     _isDebug = enabled;
     notifyListeners();
   }
+
+  bool isMockBluetoothEnabled() => _isMockBluetooth;
+
+  void setMockBluetooth(bool enabled) {
+    _isMockBluetooth = enabled;
+    notifyListeners();
+  }
+
+  // Helper method: returns true if we should skip real device I/O operations
+  // (pairing, WiFi config writes) and use mock/fake responses instead
+  bool shouldSkipDeviceIO() => _isDebug || _isMockBluetooth;
 
   void onWifiNetworkSelected(String network) {
     selectedWifiNetwork = network;
@@ -62,10 +73,8 @@ class AppProvider extends ChangeNotifier {
 
     final btDevice = qkDevices.first.btSettings!;
 
-    // fake wifi pairing if debug mode
-    AppProvider appProvider = Provider.of<AppProvider>(context, listen: false);
-    bool isDebugMode = appProvider.isDebugMode();
-    if (isDebugMode) {
+    // fake wifi pairing if debug mode or mock Bluetooth enabled
+    if (shouldSkipDeviceIO()) {
       await Future.delayed(const Duration(seconds: 5));
       saveDevice(
         btDevice.remoteId,
@@ -167,11 +176,8 @@ class AppProvider extends ChangeNotifier {
 
     bool isPaired = false;
 
-    // fake pairing if debug mode
-    // ignore: use_build_context_synchronously
-    AppProvider appProvider = Provider.of<AppProvider>(context, listen: false);
-    bool isDebugMode = appProvider.isDebugMode();
-    if (isDebugMode) {
+    // fake pairing if debug mode or mock Bluetooth enabled
+    if (shouldSkipDeviceIO()) {
       await Future.delayed(const Duration(seconds: 3));
       isPaired = true;
     } else {

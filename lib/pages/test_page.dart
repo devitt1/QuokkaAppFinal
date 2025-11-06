@@ -229,12 +229,28 @@ class _TestPageState extends State<TestPage> {
             ),
             Row(
               children: [
-                ElevatedButton(
-                  onPressed: () => appProvider.setDebugMode(!isDebugMode),
-                  child: const Text('Toggle Debug Mode'),
+                Expanded(
+                  child: Row(
+                    children: [
+                      const Text('Debug Mode'),
+                      Switch(
+                        value: isDebugMode,
+                        onChanged: (value) => appProvider.setDebugMode(value),
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(width: 15),
-                Text(isDebugMode ? 'Debug mode is: ON' : 'Debug mode is: OFF'),
+                Expanded(
+                  child: Row(
+                    children: [
+                      const Text('Mock BLE'),
+                      Switch(
+                        value: appProvider.isMockBluetoothEnabled(),
+                        onChanged: (value) => appProvider.setMockBluetooth(value),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
             Row(
