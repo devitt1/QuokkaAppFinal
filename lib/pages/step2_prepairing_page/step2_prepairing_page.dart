@@ -7,6 +7,8 @@ import 'package:quokka_mobile_app/components/qk_helper_text.dart';
 import 'package:quokka_mobile_app/components/qk_option_picker.dart';
 import 'package:quokka_mobile_app/components/spacer.dart';
 import 'package:quokka_mobile_app/pages/step3_pairing_page/step3_pairing_page.dart';
+import 'package:provider/provider.dart';
+import 'package:quokka_mobile_app/controllers/app_provider.dart';
 import 'package:quokka_mobile_app/services/qk_ble.dart';
 import 'package:quokka_mobile_app/theme/text_styles.dart';
 import 'package:quokka_mobile_app/theme/theme_colors.dart';
@@ -40,7 +42,10 @@ class _Step2PrepairingPageState extends State<Step2PrepairingPage> {
   }
 
   Future<void> _handleBluetoothStatus() async {
-    bool isSupported = await bt.isSupported();
+    final appProvider = Provider.of<AppProvider>(context, listen: false);
+    final isMockBluetooth = appProvider.isMockBluetoothEnabled();
+    
+    bool isSupported = await bt.isSupported(isMockBluetooth: isMockBluetooth);
     if (!isSupported) {
       setState(() {
         isBtSupported = false;
@@ -49,7 +54,7 @@ class _Step2PrepairingPageState extends State<Step2PrepairingPage> {
       return;
     }
 
-    final isEnabled = await bt.isEnabled();
+    final isEnabled = await bt.isEnabled(isMockBluetooth: isMockBluetooth);
     // TODO: Show a modal to ask user to enable bluetooth
     setState(() {
       isBtEnabled = isEnabled;

@@ -40,13 +40,36 @@ class QkBLEDevice {
 }
 
 class QkBLE {
+  // Create mock BLE devices for simulator testing
+  List<QkBLEDevice> _createMockDevices() {
+    return [
+      QkBLEDevice(
+        remoteId: 'MOCK-UUID-001',
+        name: 'theq-demo-01',
+        device: BluetoothDevice.fromId('MOCK-UUID-001'),
+      ),
+      QkBLEDevice(
+        remoteId: 'MOCK-UUID-002',
+        name: 'theq-demo-02',
+        device: BluetoothDevice.fromId('MOCK-UUID-002'),
+      ),
+      QkBLEDevice(
+        remoteId: 'MOCK-UUID-003',
+        name: 'theq-demo-03',
+        device: BluetoothDevice.fromId('MOCK-UUID-003'),
+      ),
+    ];
+  }
+
   // Checks if bluetooth is supported
-  Future<bool> isSupported() async {
+  Future<bool> isSupported({bool isMockBluetooth = false}) async {
+    if (isMockBluetooth) return true;
     return await FlutterBluePlus.isSupported;
   }
 
   // Checks if bluetooth is enabled
-  Future<bool> isEnabled() async {
+  Future<bool> isEnabled({bool isMockBluetooth = false}) async {
+    if (isMockBluetooth) return true;
     Completer<bool> completer = Completer<bool>();
     StreamSubscription<BluetoothAdapterState>? subscription;
 
@@ -91,8 +114,19 @@ class QkBLE {
       bool isDebugMode,
       void Function(BuildContext, String) errorUIFunction,
       void Function(bool) updateBusyUI,
-      void Function(List<QkBLEDevice>) updateDevices) async {
+      void Function(List<QkBLEDevice>) updateDevices,
+      {bool isMockBluetooth = false}) async {
     List<QkBLEDevice> scanResults = [];
+
+    // If mock Bluetooth is enabled, return mock devices immediately
+    if (isMockBluetooth) {
+      updateBusyUI(true);
+      await Future.delayed(const Duration(seconds: 2)); // Simulate scan delay
+      scanResults = _createMockDevices();
+      updateDevices(scanResults);
+      updateBusyUI(false);
+      return scanResults;
+    }
 
     if (!(await isSupported())) {
       // ignore: use_build_context_synchronously

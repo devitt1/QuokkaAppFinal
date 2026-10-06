@@ -23,7 +23,8 @@ class _QkOnboardedDevicesState extends State<QkOnboardedDevices> {
   void onPairDevice(QkDeviceModel qkDevice) async {
     if (!mounted) return;
 
-    if (await bt.isEnabled()) {
+    final isMockBluetooth = appProvider.isMockBluetoothEnabled();
+    if (await bt.isEnabled(isMockBluetooth: isMockBluetooth)) {
       // ignore: use_build_context_synchronously
       appProvider.onPairDevice(qkDevice, context, bt);
     } else {

@@ -38,6 +38,7 @@ class _QkBluetoothScannerState extends State<QkBluetoothScanner> {
 
     AppProvider appProvider = Provider.of<AppProvider>(context, listen: false);
     bool isDebugMode = appProvider.isDebugMode();
+    bool isMockBluetooth = appProvider.isMockBluetoothEnabled();
 
     final qkDevicelist = appProvider.qkDevices;
     if (qkDevicelist.isNotEmpty && qkDevicelist.first.btSettings != null) {
@@ -46,7 +47,8 @@ class _QkBluetoothScannerState extends State<QkBluetoothScanner> {
     }
 
     await bt.startScan(
-        context, lang, isDebugMode, errorUIFunction, updateBusyUI, setDevices);
+        context, lang, isDebugMode, errorUIFunction, updateBusyUI, setDevices,
+        isMockBluetooth: isMockBluetooth);
   }
 
   void restartScan() {

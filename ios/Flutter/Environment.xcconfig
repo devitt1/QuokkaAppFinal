@@ -1,0 +1,7 @@
+// Custom environment configuration for iOS builds
+// This file consolidates team ID and bundle identifier settings
+// Devs can create Environment.local.xcconfig (gitignored) to override locally
+
+DEVELOPMENT_TEAM = 79TAL73AZZ
+PRODUCT_BUNDLE_IDENTIFIER = com.quokkacomputing.app
+
